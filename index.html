@@ -138,6 +138,56 @@
       font-size: clamp(17px, 1.8vw, 21px);
     }
     .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+    .contract-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      max-width: 620px;
+      margin-top: 22px;
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      box-shadow: 7px 7px 0 color-mix(in srgb, var(--line) 58%, transparent);
+    }
+    .contract-copy-content { min-width: 0; padding: 13px 16px 12px; }
+    .contract-label {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
+      font: 9px "DM Mono", monospace;
+      letter-spacing: .04em;
+    }
+    .contract-value-row { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+    .contract-address {
+      overflow: hidden;
+      color: var(--ink);
+      font: 500 15px "DM Mono", monospace;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .contract-feedback {
+      min-width: 48px;
+      color: var(--orange);
+      font: 500 10px "DM Mono", monospace;
+    }
+    .contract-copy {
+      min-height: 66px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 16px;
+      border: 0;
+      border-left: 1px solid var(--line-strong);
+      background: var(--panel);
+      color: var(--panel-ink);
+      font: 500 10px "DM Mono", monospace;
+      cursor: pointer;
+      transition: background .2s ease, color .2s ease;
+    }
+    .contract-copy svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .contract-copy:hover { background: var(--orange); color: #241d18; }
+    .contract-copy:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
+    .contract-copy[data-state="copied"] { background: var(--lime); color: var(--lime-ink); }
+    .contract-copy[data-state="error"] { background: var(--orange); color: #241d18; }
     .btn {
       display: inline-flex;
       align-items: center;
@@ -608,6 +658,12 @@
       h1 { font-size: clamp(49px, 15vw, 68px); }
       .hero-copy > p { font-size: 16px; }
       .hero-actions .btn { flex: 1 1 150px; }
+      .contract-card { grid-template-columns: 1fr; }
+      .contract-copy {
+        min-height: 48px;
+        border-left: 0;
+        border-top: 1px solid var(--line-strong);
+      }
       .network-stage { min-height: 390px; }
       .orbit { width: 330px; }
       .core { width: 92px; }
@@ -737,6 +793,19 @@
         <div class="hero-actions">
           <a class="btn btn-primary" href="#collections">Explore the collection ↘</a>
           <a class="btn btn-secondary" href="#ecosystem">Enter the ecosystem</a>
+        </div>
+        <div class="contract-card" aria-label="Token contract address">
+          <div class="contract-copy-content">
+            <span class="contract-label">CONTRACT ADDRESS · PRE-LAUNCH PLACEHOLDER</span>
+            <div class="contract-value-row">
+              <code class="contract-address" id="contract-address">0xxxxx</code>
+              <span class="contract-feedback" id="contract-feedback" role="status" aria-live="polite"></span>
+            </div>
+          </div>
+          <button class="contract-copy" id="contract-copy" type="button" data-state="idle" aria-label="Copy contract address 0xxxxx">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1"></rect><path d="M16 8V5H5v11h3"></path></svg>
+            <span>Copy contract address</span>
+          </button>
         </div>
       </div>
 
@@ -1050,8 +1119,41 @@
       var walletConnect = document.getElementById('wallet-connect');
       var walletStatus = document.getElementById('wallet-status');
       var walletStatusText = document.getElementById('wallet-status-text');
+      var contractAddress = document.getElementById('contract-address');
+      var contractCopy = document.getElementById('contract-copy');
+      var contractFeedback = document.getElementById('contract-feedback');
+      var copyResetTimer = null;
       var connectedWallet = null;
       var walletMode = null;
+
+      function copyContractAddress() {
+        var address = contractAddress.textContent.trim();
+        window.clearTimeout(copyResetTimer);
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+          contractCopy.setAttribute('data-state', 'error');
+          contractFeedback.textContent = 'Copy unavailable';
+          copyResetTimer = window.setTimeout(function () {
+            contractCopy.setAttribute('data-state', 'idle');
+            contractFeedback.textContent = '';
+          }, 2400);
+          return;
+        }
+        navigator.clipboard.writeText(address).then(function () {
+          contractCopy.setAttribute('data-state', 'copied');
+          contractFeedback.textContent = 'Copied!';
+          copyResetTimer = window.setTimeout(function () {
+            contractCopy.setAttribute('data-state', 'idle');
+            contractFeedback.textContent = '';
+          }, 2200);
+        }).catch(function () {
+          contractCopy.setAttribute('data-state', 'error');
+          contractFeedback.textContent = 'Copy failed';
+          copyResetTimer = window.setTimeout(function () {
+            contractCopy.setAttribute('data-state', 'idle');
+            contractFeedback.textContent = '';
+          }, 2400);
+        });
+      }
 
       function shortenAddress(address) {
         if (!address || address.length < 11) { return address; }
@@ -1237,6 +1339,7 @@
         });
       });
 
+      contractCopy.addEventListener('click', copyContractAddress);
       walletConnect.addEventListener('click', connectWallet);
       if (!window.ethereum || typeof window.ethereum.request !== 'function') {
         walletStatusText.textContent = 'NO WALLET PROVIDER · DEMO MODE AVAILABLE';
